@@ -1,19 +1,121 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
 trigger:
-- main
+  branches:
+    include:
+    - refs/heads/main
+  batch: True
+name: $(date:yyyyMMdd)$(rev:.r)
+jobs:
+- job: Job_1
+  displayName: Validate (dev)
+  pool:
+    vmImage: ubuntu-20.04
+  steps:
+  - checkout: self
+  - task: TerraformInstaller@0
+    displayName: Install Terraform 1.0.0
+    inputs:
+      terraformVersion: 1.0.0
+  - task: TerraformTaskV1@0
+    displayName: Terraform - init
+    inputs:
+      workingDirectory: src/dev
+      backendServiceArm: 3aadc7b2-7a5b-445a-b27d-b0d9417487ec
+      backendAzureRmResourceGroupName: rg-cdsfnhs-uksouth
+      backendAzureRmStorageAccountName: stcdsfnhsuksouth
+      backendAzureRmContainerName: terraform
+      backendAzureRmKey: dev.terraform.tfstate
+  - task: TerraformTaskV1@0
+    displayName: Terraform - validate
+    inputs:
+      command: validate
+      workingDirectory: src/dev
+  - task: CmdLine@2
+    displayName: Install Checkov Static Analysis Tool
+    continueOnError: True
+    inputs:
+      script: >-
+        sudo apt update
 
-pool:
-  vmImage: ubuntu-latest
+        sudo apt install software-properties-common
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+        sudo add-apt-repository ppa:deadsnakes/ppa
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+        sudo apt install python3.7
+
+        sudo apt install python3-pip
+
+        sudo python3.7 -m pip install -U checkov
+  - task: CmdLine@2
+    displayName: Run Static Analysis on Terraform Source (Checkov) copy
+    continueOnError: True
+    inputs:
+      script: checkov --directory src/dev --output junitxml > $(System.DefaultWorkingDirectory)/checkov-report.xml
+  - task: PublishTestResults@2
+    displayName: Publish Terraform Static Analysis Results
+    continueOnError: True
+    inputs:
+      testResultsFiles: checkov-report.xml
+      testRunTitle: Checkov Terraform Static Analysis Test Run
+  - task: CopyFiles@2
+    displayName: Copy Terraform Files to Artifacts Staging Directory
+    inputs:
+      SourceFolder: src/dev
+      TargetFolder: $(Build.ArtifactStagingDirectory)/dev
+      CleanTargetFolder: true
+      OverWrite: true
+  - task: TerraformTaskV1@0
+    displayName: Terraform - plan
+    inputs:
+      command: plan
+      workingDirectory: $(Build.ArtifactStagingDirectory)/dev
+      commandOptions: -no-color -out="dev-uksouth.tfplan" -input=false -var="product_name=cdsfnhs" -var="location=uksouth" -var="environment=dev" -var="sqlserver_admin_email=tim.hunt@cds.co.uk"
+      environmentServiceNameAzureRM: 3aadc7b2-7a5b-445a-b27d-b0d9417487ec
+  - task: CmdLine@2
+    displayName: Generate Reviewer Information File
+    inputs:
+      script: >+
+        echo "--------------------------------------------------------" >> build-details.txt
+
+        echo "Details of Build # - $(Build.BuildNumber)" >> build-details.txt
+
+        echo "--------------------------------------------------------" >> build-details.txt
+
+        echo "Definition - $(Build.DefinitionName) [$(Build.DefinitionVersion)]" >> build-details.txt
+
+        echo "Reason - $(Build.Reason)" >> build-details.txt
+
+        echo "Repository - $(Build.Repository.Name) [$(Build.Repository.Uri)]" >> build-details.txt
+
+        echo "Branch - $(Build.SourceBranchName)" >> build-details.txt
+
+        echo "Commit Id - $(Build.SourceVersion)" >> build-details.txt
+
+        echo "Commit Message (truncated) - $(Build.SourceVersionMessage)" >> build-details.txt
+
+        echo "--------------------------------------------------------" >> build-details.txt
+
+        echo "You will find the terraform plan for this build below" >> build-details.txt
+
+        echo "--------------------------------------------------------" >> build-details.txt
+
+
+
+      workingDirectory: $(Build.ArtifactStagingDirectory)
+  - task: CmdLine@2
+    displayName: Terraform - Convert Plan to Readable Form
+    inputs:
+      script: >
+        terraform init
+
+        terraform show "dev-uksouth.tfplan" >> ../build-details.txt
+      workingDirectory: $(Build.ArtifactStagingDirectory)/dev
+  - task: DeleteFiles@1
+    displayName: 'Delete Terraform Artifacts '
+    inputs:
+      SourceFolder: $(Build.ArtifactStagingDirectory)/dev
+      Contents: .terraform*
+  - task: PublishBuildArtifacts@1
+    displayName: Publish Artifact - Terraform Modules + Plan
+    inputs:
+      ArtifactName: dev-uksouth-terraform-release-plan
+...
