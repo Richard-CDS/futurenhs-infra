@@ -1,3 +1,15 @@
+# Variable 'azure.service_connection' was defined in the Variables tab
+# Variable 'azure.tfstatefile.blob_container' was defined in the Variables tab
+# Variable 'azure.tfstatefile.name' was defined in the Variables tab
+# Variable 'azure.tfstatefile.resource_group' was defined in the Variables tab
+# Variable 'azure.tfstatefile.storage_account' was defined in the Variables tab
+# Variable 'terraform.configuration_directory' was defined in the Variables tab
+# Variable 'terraform.environment' was defined in the Variables tab
+# Variable 'terraform.location' was defined in the Variables tab
+# Variable 'terraform.plan.artefact_name' was defined in the Variables tab
+# Variable 'terraform.plan.name' was defined in the Variables tab
+# Variable 'terraform.product_name' was defined in the Variables tab
+# Variable 'terraform.sqlserver_admin_email' was defined in the Variables tab
 trigger:
   branches:
     include:
@@ -15,20 +27,20 @@ jobs:
     displayName: Install Terraform 1.0.0
     inputs:
       terraformVersion: 1.0.0
-  - task: TerraformTaskV1@0
+  - task: TerraformTaskV2@2
     displayName: Terraform - init
     inputs:
-      workingDirectory: src/dev
-      backendServiceArm: 3aadc7b2-7a5b-445a-b27d-b0d9417487ec
-      backendAzureRmResourceGroupName: rg-cdsfnhs-uksouth
-      backendAzureRmStorageAccountName: stcdsfnhsuksouth
-      backendAzureRmContainerName: terraform
-      backendAzureRmKey: dev.terraform.tfstate
-  - task: TerraformTaskV1@0
+      workingDirectory: $(terraform.configuration_directory)
+      backendServiceArm: $(azure.service_connection)
+      backendAzureRmResourceGroupName: $(azure.tfstatefile.resource_group)
+      backendAzureRmStorageAccountName: $(azure.tfstatefile.storage_account)
+      backendAzureRmContainerName: $(azure.tfstatefile.blob_container)
+      backendAzureRmKey: $(azure.tfstatefile.name)
+  - task: TerraformTaskV2@2
     displayName: Terraform - validate
     inputs:
       command: validate
-      workingDirectory: src/dev
+      workingDirectory: $(terraform.configuration_directory)
   - task: CmdLine@2
     displayName: Install Checkov Static Analysis Tool
     continueOnError: True
@@ -49,7 +61,7 @@ jobs:
     displayName: Run Static Analysis on Terraform Source (Checkov) copy
     continueOnError: True
     inputs:
-      script: checkov --directory src/dev --output junitxml > $(System.DefaultWorkingDirectory)/checkov-report.xml
+      script: checkov --directory $(terraform.configuration_directory) --output junitxml > $(System.DefaultWorkingDirectory)/checkov-report.xml
   - task: PublishTestResults@2
     displayName: Publish Terraform Static Analysis Results
     continueOnError: True
@@ -59,17 +71,17 @@ jobs:
   - task: CopyFiles@2
     displayName: Copy Terraform Files to Artifacts Staging Directory
     inputs:
-      SourceFolder: src/dev
-      TargetFolder: $(Build.ArtifactStagingDirectory)/dev
+      SourceFolder: $(terraform.configuration_directory)
+      TargetFolder: $(Build.ArtifactStagingDirectory)/$(terraform.environment)
       CleanTargetFolder: true
       OverWrite: true
-  - task: TerraformTaskV1@0
+  - task: TerraformTaskV2@2
     displayName: Terraform - plan
     inputs:
       command: plan
-      workingDirectory: $(Build.ArtifactStagingDirectory)/dev
-      commandOptions: -no-color -out="dev-uksouth.tfplan" -input=false -var="product_name=cdsfnhs" -var="location=uksouth" -var="environment=dev" -var="sqlserver_admin_email=tim.hunt@cds.co.uk"
-      environmentServiceNameAzureRM: 3aadc7b2-7a5b-445a-b27d-b0d9417487ec
+      workingDirectory: $(Build.ArtifactStagingDirectory)/$(terraform.environment)
+      commandOptions: -no-color -out="$(terraform.plan.name).tfplan" -input=false -var="product_name=$(terraform.product_name)" -var="location=$(terraform.location)" -var="environment=$(terraform.environment)" -var="sqlserver_admin_email=$(terraform.sqlserver_admin_email)"
+      environmentServiceNameAzureRM: $(azure.service_connection)
   - task: CmdLine@2
     displayName: Generate Reviewer Information File
     inputs:
@@ -107,15 +119,15 @@ jobs:
       script: >
         terraform init
 
-        terraform show "dev-uksouth.tfplan" >> ../build-details.txt
-      workingDirectory: $(Build.ArtifactStagingDirectory)/dev
+        terraform show "$(terraform.plan.name).tfplan" >> ../build-details.txt
+      workingDirectory: $(Build.ArtifactStagingDirectory)/$(terraform.environment)
   - task: DeleteFiles@1
     displayName: 'Delete Terraform Artifacts '
     inputs:
-      SourceFolder: $(Build.ArtifactStagingDirectory)/dev
+      SourceFolder: $(Build.ArtifactStagingDirectory)/$(terraform.environment)
       Contents: .terraform*
   - task: PublishBuildArtifacts@1
     displayName: Publish Artifact - Terraform Modules + Plan
     inputs:
-      ArtifactName: dev-uksouth-terraform-release-plan
+      ArtifactName: $(terraform.plan.artefact_name)
 ...
