@@ -65,6 +65,26 @@ resource "azurerm_mssql_server_extended_auditing_policy" "primary" {
   log_monitoring_enabled                        = true
 }
 
+resource "azurerm_mssql_server_security_alert_policy" "primary" {
+  resource_group_name                           = var.resource_group_name
+  server_name                                   = azurerm_mssql_server.primary.name
+  state                                         = "Enabled"
+}
+
+resource "azurerm_mssql_server_vulnerability_assessment" "primary" {
+  server_security_alert_policy_id               = azurerm_mssql_server_security_alert_policy.primary.id
+  storage_container_path                        = "${var.log_storage_account_blob_endpoint}${var.log_storage_account_sql_server_vulnerability_assessments_container_name}/"
+  storage_account_access_key                    = var.log_storage_account_access_key
+
+  recurring_scans {
+    enabled                   = true
+    email_subscription_admins = true
+    emails = [
+      var.sqlserver_admin_email
+    ]
+  }
+}
+
 # https://docs.microsoft.com/en-us/rest/api/sql/firewallrules/createorupdate
 resource "azurerm_mssql_firewall_rule" "firewall_rule_1" {
   name                                         = "sqlfwr-${var.product_name}-${var.environment}-${var.location}-001"
@@ -72,6 +92,57 @@ resource "azurerm_mssql_firewall_rule" "firewall_rule_1" {
   start_ip_address                             = "0.0.0.0"
   end_ip_address                               = "0.0.0.0"
 }
+
+data "azurerm_mssql_database" "master" {
+  name                                         = "master"
+  server_id                                    = azurerm_mssql_server.primary.id
+}
+
+# TODO - works ok first run then terraform tries to recreate it each time which leads to an error
+#        need to figure out why it thinks it needs recreating and comment the below setting back in
+
+#data "azurerm_monitor_diagnostic_categories" "master" {
+#  resource_id                                  = data.azurerm_mssql_database.master.id
+#}
+
+#resource "azurerm_monitor_diagnostic_setting" "master" {
+#  name                                         = "sqldb-master-diagnostics"
+#  target_resource_id                           = data.azurerm_mssql_database.master.id
+#  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+#  storage_account_id                           = var.log_storage_account_id
+
+#  dynamic "log" {
+#    iterator = log_category
+#    for_each = data.azurerm_monitor_diagnostic_categories.master.logs
+
+#    content {
+#      category = log_category.value
+#      enabled  = true
+
+#      retention_policy {
+#        enabled = true
+#        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+#      }
+#    }
+#  }
+
+#  dynamic "metric" {
+#    iterator = metric_category
+#    for_each = data.azurerm_monitor_diagnostic_categories.master.metrics
+
+#    content {
+#      category = metric_category.value
+#      enabled  = true
+
+#      retention_policy {
+#        enabled = true
+#        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+#      }
+#    }
+#  }
+#}
+
+
 
 
 # https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/mssql_elasticpool
@@ -103,6 +174,48 @@ resource "azurerm_mssql_elasticpool" "primary" {
   }
 }
 
+data "azurerm_monitor_diagnostic_categories" "sqlep" {
+  resource_id                                  = azurerm_mssql_elasticpool.primary.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "sqlep" {
+  name                                         = "sqlep-diagnostics"
+  target_resource_id                           = azurerm_mssql_elasticpool.primary.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+  
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.sqlep.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.sqlep.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
+
+
 
 
 module "forum" {
@@ -116,6 +229,9 @@ module "forum" {
 
   key_vault_id                                   = var.key_vault_id
 
+  log_analytics_workspace_resource_id            = var.log_analytics_workspace_resource_id
+
+  log_storage_account_id                         = var.log_storage_account_id
   log_storage_account_blob_endpoint              = var.log_storage_account_blob_endpoint
   log_storage_account_access_key                 = var.log_storage_account_access_key
 

@@ -16,6 +16,12 @@ variable log_storage_account_access_key {
   #sensitive       = true
 }
 
+variable log_storage_account_id { type = string }
+
+variable log_storage_account_sql_server_vulnerability_assessments_container_name { type = string }
+
+variable log_analytics_workspace_resource_id { type = string }
+
 variable key_vault_id { type = string }
 
 variable sqlserver_admin_email {

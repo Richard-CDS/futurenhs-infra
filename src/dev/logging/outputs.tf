@@ -27,3 +27,7 @@ output log_storage_account_connection_string {
 output log_storage_account_appsvclogs_container_name { 
   value = azurerm_storage_container.appsvclogs.name
 }
+
+output log_storage_account_sql_server_vulnerability_assessments_container_name {
+  value = azurerm_storage_container.sql_vulnerability_assessments.name
+}

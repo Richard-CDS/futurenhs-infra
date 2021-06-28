@@ -8,6 +8,9 @@ variable resource_group_name { type = string }
 
 variable key_vault_id { type = string }
 
+variable log_storage_account_id { type = string }
+
+variable log_analytics_workspace_resource_id { type = string }
 
 variable sql_server_id { type = string }
 

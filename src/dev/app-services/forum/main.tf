@@ -25,8 +25,8 @@ resource "azurerm_app_service_plan" "forum" {
   reserved                                  = false  
 
   sku {
-    tier                                    = "Standard"	# needed for deployment slots, custom domains/ssl and auto-scaling
-    size                                    = "S1"
+    tier                                    = "Standard"	# needed for deployment slots and auto-scaling
+    size                                    = "P1V2"      # "S1"
     capacity                                = 1
   }
 
@@ -36,6 +36,48 @@ resource "azurerm_app_service_plan" "forum" {
     ]
   }
 }
+
+data "azurerm_monitor_diagnostic_categories" "plan" {
+  resource_id                                  = azurerm_app_service_plan.forum.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "plan" {
+  name                                         = "plan-forum-diagnostics"
+  target_resource_id                           = azurerm_app_service_plan.forum.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.plan.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.plan.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
+
 
 resource "azurerm_app_service" "forum" {
   name                                      = "app-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-forum"
@@ -78,24 +120,52 @@ resource "azurerm_app_service" "forum" {
     "DiagnosticServices_EXTENSION_VERSION"  = "~3"
     "ASPNET_ENV"                            = var.environment                                   # this value will be used to match with the label on the environment specific configuration in the azure app config service
     "ASPNETCORE_ENVIRONMENT"                = var.environment                                   # this value will be used to match with the label on the environment specific configuration in the azure app config service
-    "AzureAppConfiguration:PrimaryEndpoint" = var.forum_app_config_primary_endpoint		# to get app config for the environment including feature flags
+    
+    "AzureAppConfiguration:PrimaryEndpoint" = var.forum_app_config_primary_endpoint		          # to get app config for the environment including feature flags
+
+    # Added to try and simulate what portal does to configure app insights .NET coverage on app server
+    # Removed again to see if they are the cause for a lack of telemetry being collected/visible for service (could be hidden settings we're missing?)
+
+    #"APPINSIGHTS_SNAPSHOTFEATURE_VERSION"   = "1.0.0"
+    #"ApplicationInsightsAgent_EXTENSION_VERSION" = "~2" 
+    #"InstrumentationEngine_EXTENSION_VERSION" = "disabled" 
+    #"SnapshotDebugger_EXTENSION_VERSION" = "disabled" 
+    #"XDT_MicrosoftApplicationInsights_BaseExtensions" = "~1" 
+    #"XDT_MicrosoftApplicationInsights_Java" = "1" 
+    #"XDT_MicrosoftApplicationInsights_Mode" = "recommended" 
+    #"XDT_MicrosoftApplicationInsights_NodeJs" = "recommended" 
+    #"XDT_MicrosoftApplicationInsights_PreemptSdk" = "disabled" 
 
     # TODO - Move the following settings to the azure config service for the forum once it has been integrated with the site
 
     "AzureBlobStorage:PrimaryEndpoint"      = var.forum_primary_blob_container_endpoint		# for storing avatar and group images
+    "BlobContainer"                         = var.forum_primary_blob_container_name
+    "StorageProvider"                       = "MvcForum.Plugins.Providers.AzureBlobStorageProvider"
   }
 
   connection_string {
     name                                    = "MVCForumContext"
     type                                    = "SQLAzure"
-    value                                   = var.forum_keyvault_connection_string_reference
+    value                                   = var.forum_db_keyvault_connection_string_reference
   }
 
   # Add connection string for read scale-out support (available in Premium/Business Critical editions of Azure SQL by default) .. ApplicationIntent=ReadOnly
   connection_string {
     name                                    = "Forum_ReadOnlyIntent"
     type                                    = "SQLAzure"
-    value                                   = var.forum_keyvault_connection_string_reference
+    value                                   = var.forum_db_keyvault_connection_string_reference
+  }
+
+  connection_string {
+    name                                    = "AzureBlobStorage:PrimaryConnectionString"
+    type                                    = "Custom"
+    value                                   = var.forum_primary_blob_keyvault_connection_string_reference
+  }
+
+  connection_string {
+    name                                    = "AzureAppConfiguration:PrimaryConnectionString"
+    type                                    = "Custom"
+    value                                   = var.forum_app_config_primary_keyvault_connection_string_reference
   }
 
   logs {
@@ -142,6 +212,46 @@ resource "azurerm_app_service" "forum" {
 #  role_definition_name                      = "Storage Blob Data Contributor"
 #}
 
+data "azurerm_monitor_diagnostic_categories" "main" {
+  resource_id                                  = azurerm_app_service.forum.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "main" {
+  name                                         = "app-forum-diagnostics"
+  target_resource_id                           = azurerm_app_service.forum.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.main.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.main.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
 
 
 

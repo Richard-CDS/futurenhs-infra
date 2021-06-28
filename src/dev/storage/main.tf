@@ -42,3 +42,9 @@ resource "azurerm_storage_container" "forum" {
   storage_account_name       = azurerm_storage_account.public_content.name
   container_access_type      = "blob"	# blob | container | private
 }
+
+resource "azurerm_key_vault_secret" "blobs_primary_forum_connection_string" {
+  name                                      = "blobs-${var.product_name}-${var.environment}-${var.location}-forum-connection-string"
+  value                                     = azurerm_storage_account.public_content.primary_connection_string
+  key_vault_id                              = var.key_vault_id
+}

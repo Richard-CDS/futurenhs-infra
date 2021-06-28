@@ -27,9 +27,10 @@ locals {
 
   resource_group_name                         = "rg-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-001"
 
-  forum_keyvault_connection_string_reference  = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/sqldb-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)" # module.databases.forum_keyvault_connection_string_reference 
+  forum_db_keyvault_connection_string_reference         = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/sqldb-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)"  
+  forum_blob_keyvault_connection_string_reference       = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/blobs-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)"
+  forum_app_config_keyvault_connection_string_reference = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/appcs-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)"
 }
-
 
 
 module "resource-group" {
@@ -48,6 +49,8 @@ module "storage" {
   location                                    = var.location
   environment                                 = var.environment
   product_name                                = var.product_name
+
+  key_vault_id                                = module.key-vault.key_vault_id
 }
 
 module "identities" {
@@ -69,6 +72,10 @@ module "search" {
   environment                                 = var.environment
   product_name                                = var.product_name
 
+  log_storage_account_id                      = module.logging.log_storage_account_id
+
+  log_analytics_workspace_resource_id         = module.logging.log_analytics_workspace_resource_id
+
   forum_sql_database_name                     = module.databases.forum_database_name
   forum_database_connection_string            = module.databases.forum_connection_string
 }
@@ -81,6 +88,10 @@ module "key-vault" {
   location                                    = var.location
   environment                                 = var.environment
   product_name                                = var.product_name
+
+  log_storage_account_id                      = module.logging.log_storage_account_id
+
+  log_analytics_workspace_resource_id         = module.logging.log_analytics_workspace_resource_id
 
   principal_id_forum_app_svc                  = module.app-services.principal_id_forum
   principal_id_app_configuration_svc          = module.app-configuration.principal_id
@@ -105,6 +116,10 @@ module "virtual-network" {
   location                                    = var.location
   environment                                 = var.environment
   product_name                                = var.product_name
+
+  log_storage_account_id                      = module.logging.log_storage_account_id
+
+  log_analytics_workspace_resource_id         = module.logging.log_analytics_workspace_resource_id
 }
 
 module "app-insights" { 
@@ -115,6 +130,10 @@ module "app-insights" {
   location                                    = var.location
   environment                                 = var.environment
   product_name                                = var.product_name
+  
+  log_storage_account_id                      = module.logging.log_storage_account_id
+
+  log_analytics_workspace_resource_id         = module.logging.log_analytics_workspace_resource_id
 }
 
 module "app-configuration" { 
@@ -126,7 +145,13 @@ module "app-configuration" {
   environment                                 = var.environment
   product_name                                = var.product_name
 
+  key_vault_id                                = module.key-vault.key_vault_id
+
   principal_id_forum_app_svc                  = module.app-services.principal_id_forum
+  
+  log_storage_account_id                      = module.logging.log_storage_account_id
+
+  log_analytics_workspace_resource_id         = module.logging.log_analytics_workspace_resource_id
 }
 
 module "app-gateway" {
@@ -164,11 +189,15 @@ module "app-services" {
   log_storage_account_blob_endpoint                 = module.logging.log_storage_account_blob_endpoint
   log_storage_account_connection_string             = module.logging.log_storage_account_connection_string
   log_storage_account_container_name                = module.logging.log_storage_account_appsvclogs_container_name
+  log_storage_account_id                            = module.logging.log_storage_account_id
+
+  log_analytics_workspace_resource_id               = module.logging.log_analytics_workspace_resource_id
 
   forum_app_config_primary_endpoint                 = module.app-configuration.endpoint
 
   forum_primary_blob_container_endpoint             = module.storage.forum_primary_blob_container_endpoint
   forum_primary_blob_container_resource_manager_id  = module.storage.forum_primary_blob_container_resource_manager_id
+  forum_primary_blob_container_name                 = module.storage.forum_primary_blob_container_name
 
   forum_app_insights_instrumentation_key            = module.app-insights.forum_instrumentation_key
   forum_app_insights_connection_string              = module.app-insights.forum_connection_string
@@ -179,7 +208,9 @@ module "app-services" {
   # we have to hard code key vault references here (the app-service config must be defined with the app-service resource as azurerm does not support a separate resource for doing so)
   # rather than feeding it in from the key-vault module.  
 
-  forum_keyvault_connection_string_reference  = local.forum_keyvault_connection_string_reference
+  forum_db_keyvault_connection_string_reference                 = local.forum_db_keyvault_connection_string_reference
+  forum_primary_blob_keyvault_connection_string_reference       = local.forum_blob_keyvault_connection_string_reference
+  forum_app_config_primary_keyvault_connection_string_reference = local.forum_app_config_keyvault_connection_string_reference
 }
 
 module "databases" {
@@ -197,5 +228,16 @@ module "databases" {
 
   log_storage_account_blob_endpoint           = module.logging.log_storage_account_blob_endpoint
   log_storage_account_access_key              = module.logging.log_storage_account_access_key
+  log_storage_account_id                      = module.logging.log_storage_account_id
+  log_storage_account_sql_server_vulnerability_assessments_container_name = module.logging.log_storage_account_sql_server_vulnerability_assessments_container_name
+
+  log_analytics_workspace_resource_id         = module.logging.log_analytics_workspace_resource_id
 }
 
+module "security_centre" {
+  source                                      = "./security-centre"
+
+  security_center_contact_email               = var.security_center_contact_email
+
+  log_analytics_workspace_resource_id         = module.logging.log_analytics_workspace_resource_id
+}

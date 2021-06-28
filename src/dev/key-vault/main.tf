@@ -98,12 +98,55 @@ resource "azurerm_key_vault" "main" {
   }
 }
 
+data "azurerm_monitor_diagnostic_categories" "main" {
+  resource_id                                  = azurerm_key_vault.main.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "main" {
+  name                                         = "kv-diagnostics"
+  target_resource_id                           = azurerm_key_vault.main.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.main.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.main.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
+
+
+# TODO - Remove the certificate creation from this file -
 # Create a temporary self-signed certificate that the application gateway can use for HTTPS management.  This will eventually be replaced by a certificate we 
-# generate for a specific wildcard domain using something like LetsEncrypt, and oush direct to the key vault as it is renewed.  This lifecycle will be managed
+# generate for a specific wildcard domain using something like LetsEncrypt, and push direct to the key vault as it is renewed.  This lifecycle will be managed
 # outside of this terraform script
 
 resource "azurerm_key_vault_certificate" "app_forum_https" {
-  name                                   = "futurenhs-website"
+  name                                   = "agw-tls-certificate"
   key_vault_id                           = azurerm_key_vault.main.id
 
   certificate_policy {
@@ -145,10 +188,10 @@ resource "azurerm_key_vault_certificate" "app_forum_https" {
       ]
 
       subject_alternative_names {
-        dns_names = ["app-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-forum.azurewebsites.net"]
+        dns_names = ["futurenhs.cds.co.uk"]
       }
 
-      subject            = "CN=app-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-forum.azurewebsites.net"
+      subject            = "CN=futurenhs.cds.co.uk"
       validity_in_months = 3
     }
   }

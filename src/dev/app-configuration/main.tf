@@ -20,6 +20,54 @@ resource "azurerm_app_configuration" "main" {
   }
 }
 
+resource "azurerm_key_vault_secret" "appconfig_primary_forum_connection_string" {
+  name                                      = "appcs-${var.product_name}-${var.environment}-${var.location}-forum-connection-string"
+  value                                     = azurerm_app_configuration.main.primary_read_key.0.connection_string
+  key_vault_id                              = var.key_vault_id
+}
+
+data "azurerm_monitor_diagnostic_categories" "main" {
+  resource_id                                  = azurerm_app_configuration.main.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "main" {
+  name                                         = "appcs-diagnostics"
+  target_resource_id                           = azurerm_app_configuration.main.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.main.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.main.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
+
+
 # TODO - Comment back in once the terraform state file has been fixed by importing these resources
 
 # Give current identity the relevant permission to add new key values

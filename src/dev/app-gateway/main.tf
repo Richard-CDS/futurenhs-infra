@@ -40,11 +40,94 @@ resource "azurerm_public_ip" "default" {
   domain_name_label                              = "${lower(var.product_name)}-${lower(var.environment)}"
 }
 
+data "azurerm_monitor_diagnostic_categories" "pip" {
+  resource_id                                  = azurerm_public_ip.default.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "pip" {
+  name                                         = "pip-diagnostics"
+  target_resource_id                           = azurerm_public_ip.default.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.pip.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.pip.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
+
 resource "azurerm_network_security_group" "default" {
   name                                           = "nsg-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-default"
   location                                       = var.location
   resource_group_name                            = var.resource_group_name
 }
+
+data "azurerm_monitor_diagnostic_categories" "nsg" {
+  resource_id                                  = azurerm_network_security_group.default.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "nsg" {
+  name                                         = "nsg-diagnostics"
+  target_resource_id                           = azurerm_network_security_group.default.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.nsg.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.nsg.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
+
 
 resource "azurerm_application_gateway" "default" {
   name                                           = "agw-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-default"
@@ -148,11 +231,26 @@ resource "azurerm_application_gateway" "default" {
   backend_http_settings {
     name                                         = "agw-forum-backend-https"
     cookie_based_affinity                        = "Disabled"
+    #affinity_cookie_name                         = ""
     #path                                         = "/"
-    host_name                                    = "futurenhs.cds.co.uk"
     port                                         = 443
     protocol                                     = "Https"
     request_timeout                              = 60
+    probe_name                                   = "agw-forum-probe"
+    #host_name                                    = "futurenhs.cds.co.uk" 
+    pick_host_name_from_backend_address          = true
+  }
+
+  probe {
+    name                                         = "agw-forum-probe"
+    interval                                     = 30 # 1 - 86400
+    protocol                                     = "Https"
+    path                                         = "/api/HealthCheck/heartbeat"
+    timeout                                      = 30 # 1 - 86400
+    unhealthy_threshold                          = 3 # 1 - 20
+    #port                                         = "443"
+    pick_host_name_from_backend_http_settings    = true
+    minimum_servers                              = 0
   }
 
   backend_address_pool {
@@ -160,5 +258,46 @@ resource "azurerm_application_gateway" "default" {
     fqdns                                        = [
       "app-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-forum.azurewebsites.net"
     ]
+  }
+}
+
+data "azurerm_monitor_diagnostic_categories" "agw_waf" {
+  resource_id                                  = azurerm_application_gateway.default.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "agw-waf" {
+  name                                         = "agw-waf-diagnostics"
+  target_resource_id                           = azurerm_application_gateway.default.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.agw_waf.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.agw_waf.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
   }
 }

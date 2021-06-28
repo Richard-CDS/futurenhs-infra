@@ -36,6 +36,47 @@ resource "azurerm_mssql_database" "forum" {
 #  server_id = azurerm_mssql_server.forum.id
 #}
 
+data "azurerm_monitor_diagnostic_categories" "sqldb" {
+  resource_id                                  = azurerm_mssql_database.forum.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "sqldb" {
+  name                                         = "sqldb-forum-diagnostics"
+  target_resource_id                           = azurerm_mssql_database.forum.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.sqldb.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.sqldb.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
+
 resource "azurerm_key_vault_secret" "sqlserver_primary_forumdb_connection_string" {
   name                                      = "sqldb-${var.product_name}-${var.environment}-${var.location}-forum-connection-string"
   value                                     = "Server=tcp:${var.sql_server_primary_fully_qualified_domain_name},1433;Initial Catalog=sqldb-${var.product_name}-${var.environment}-${var.location}-forum;Persist Security Info=False;User ID=${var.database_login_user};Password=${var.database_login_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"

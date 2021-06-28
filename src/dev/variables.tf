@@ -36,3 +36,12 @@ variable sqlserver_admin_email {
   #}
 }
 
+variable security_center_contact_email {
+  type = string
+  #sensitive = true
+
+  #validation {
+  #  condition     = length(regexall("/^w+[+.w-]*@([w-]+.)*w+[w-]*.([a-z]{2,4}|d+)$/i", var.sqlserver_admin_email)) > 0
+  #  error_message = "The sqlserver_admin_email variable must contain an email address."
+  #}
+}

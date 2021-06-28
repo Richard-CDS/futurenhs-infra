@@ -18,6 +18,49 @@ resource "azurerm_search_service" "main" {
   #allowed_ips			= []				
 }
 
+data "azurerm_monitor_diagnostic_categories" "srch" {
+  resource_id                                  = azurerm_search_service.main.id
+}
+
+resource "azurerm_monitor_diagnostic_setting" "pip" {
+  name                                         = "srch-diagnostics"
+  target_resource_id                           = azurerm_search_service.main.id
+  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+  storage_account_id                           = var.log_storage_account_id
+
+  dynamic "log" {
+    iterator = log_category
+    for_each = data.azurerm_monitor_diagnostic_categories.srch.logs
+
+    content {
+      category = log_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+
+  dynamic "metric" {
+    iterator = metric_category
+    for_each = data.azurerm_monitor_diagnostic_categories.srch.metrics
+
+    content {
+      category = metric_category.value
+      enabled  = true
+
+      retention_policy {
+        enabled = true
+        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+      }
+    }
+  }
+}
+
+
+
 # PUT request to create Cognitive Search data source that links to the forum database to index searching for groups
 
 locals {
