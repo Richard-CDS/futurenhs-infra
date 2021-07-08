@@ -38,7 +38,7 @@ resource "azurerm_monitor_diagnostic_setting" "pip" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
@@ -53,7 +53,7 @@ resource "azurerm_monitor_diagnostic_setting" "pip" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }

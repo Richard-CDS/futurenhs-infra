@@ -9,8 +9,11 @@
 # Variable 'terraform.plan.artefact_name' was defined in the Variables tab
 # Variable 'terraform.plan.name' was defined in the Variables tab
 # Variable 'terraform.product_name' was defined in the Variables tab
-# Variable 'terraform.sqlserver_admin_email' was defined in the Variables tab
 # Variable 'terraform.security_center_contact_email' was defined in the Variables tab
+# Variable 'terraform.security_center_contact_phone' was defined in the Variables tab
+# Variable 'terraform.sqlserver_admin_email' was defined in the Variables tab
+# Variable 'terraform.appgw_tls_certificate_path' was defined in the Variables tab
+# Variable 'terraform.appgw_tls_certificate_password' was defined in the Variables tab
 trigger:
   branches:
     include:
@@ -32,6 +35,7 @@ jobs:
     displayName: Terraform - init
     inputs:
       workingDirectory: $(terraform.configuration_directory)
+      commandOptions: -upgrade
       backendServiceArm: $(azure.service_connection)
       backendAzureRmResourceGroupName: $(azure.tfstatefile.resource_group)
       backendAzureRmStorageAccountName: $(azure.tfstatefile.storage_account)
@@ -81,7 +85,7 @@ jobs:
     inputs:
       command: plan
       workingDirectory: $(Build.ArtifactStagingDirectory)/$(terraform.environment)
-      commandOptions: -no-color -out="$(terraform.plan.name).tfplan" -input=false -var="product_name=$(terraform.product_name)" -var="location=$(terraform.location)" -var="environment=$(terraform.environment)" -var="sqlserver_admin_email=$(terraform.sqlserver_admin_email)" -var="security_center_contact_email=$(terraform.security_center_contact_email)"
+      commandOptions: -no-color -out="$(terraform.plan.name).tfplan" -input=false -var="product_name=$(terraform.product_name)" -var="location=$(terraform.location)" -var="environment=$(terraform.environment)" -var="sqlserver_admin_email=$(terraform.sqlserver_admin_email)" -var="security_center_contact_email=$(terraform.security_center_contact_email)" -var="security_center_contact_phone=$(terraform.security_center_contact_phone)" -var="appgw_tls_certificate_password=$(terraform.appgw_tls_certificate_password)" -var="appgw_tls_certificate_path=$(terraform.appgw_tls_certificate_path)"
       environmentServiceNameAzureRM: $(azure.service_connection)
   - task: CmdLine@2
     displayName: Generate Reviewer Information File

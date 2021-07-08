@@ -101,8 +101,18 @@ resource "azurerm_app_service" "forum" {
     remote_debugging_version                = "VS2019"
     ftps_state                              = "Disabled"
     health_check_path                       = "api/HealthCheck/heartbeat"
-    http2_enabled                           = false
-    ip_restriction                          = [] # [ { name = "ipr-" priority = "65000" action = "Allow" ip_address = "" | service_tag = "" | virtual_network_subnet_id = "" } ]
+    http2_enabled                           = true
+    ip_restriction                          = [
+      {
+        name                                = "VirtualNetworkAllowInbound"
+        priority                            = "1"
+        action                              = "Allow"
+        virtual_network_subnet_id           = var.virtual_network_application_gateway_subnet_id
+        ip_address                          = null
+        headers                             = null
+        service_tag                         = null
+      }
+    ] 
     scm_use_main_ip_restriction             = true
     scm_ip_restriction                      = []
     local_mysql_enabled                     = false
@@ -114,15 +124,18 @@ resource "azurerm_app_service" "forum" {
   }
 
   app_settings = {
-    "APPINSIGHTS_INSTRUMENTATIONKEY"        = var.forum_app_insights_instrumentation_key
-    "APPLICATIONINSIGHTS_CONNECTION_STRING" = var.forum_app_insights_connection_string
-    "APPINSIGHTS_PROFILERFEATURE_VERSION"   = "1.0.0"
-    "DiagnosticServices_EXTENSION_VERSION"  = "~3"
     "ASPNET_ENV"                            = var.environment                                   # this value will be used to match with the label on the environment specific configuration in the azure app config service
     "ASPNETCORE_ENVIRONMENT"                = var.environment                                   # this value will be used to match with the label on the environment specific configuration in the azure app config service
-    
-    "AzureAppConfiguration:PrimaryEndpoint" = var.forum_app_config_primary_endpoint		          # to get app config for the environment including feature flags
+    "APPLICATIONINSIGHTS_CONNECTION_STRING" = var.forum_app_insights_connection_string
 
+    # Enable app service profiling - 
+    # see https://docs.microsoft.com/en-us/azure/azure-monitor/app/profiler-overview
+    # and https://docs.microsoft.com/en-us/azure/azure-monitor/app/profiler?toc=/azure/azure-monitor/toc.json 
+   
+    "APPINSIGHTS_INSTRUMENTATIONKEY"        = var.forum_app_insights_instrumentation_key
+    "APPINSIGHTS_PROFILERFEATURE_VERSION"   = "1.0.0"
+    "DiagnosticServices_EXTENSION_VERSION"  = "~3"
+    
     # Added to try and simulate what portal does to configure app insights .NET coverage on app server
     # Removed again to see if they are the cause for a lack of telemetry being collected/visible for service (could be hidden settings we're missing?)
 
@@ -135,6 +148,8 @@ resource "azurerm_app_service" "forum" {
     #"XDT_MicrosoftApplicationInsights_Mode" = "recommended" 
     #"XDT_MicrosoftApplicationInsights_NodeJs" = "recommended" 
     #"XDT_MicrosoftApplicationInsights_PreemptSdk" = "disabled" 
+
+    "AzureAppConfiguration:PrimaryEndpoint" = var.forum_app_config_primary_endpoint		          # to get app config for the environment including feature flags
 
     # TODO - Move the following settings to the azure config service for the forum once it has been integrated with the site
 
@@ -178,17 +193,17 @@ resource "azurerm_app_service" "forum" {
       azure_blob_storage { 
         level                               = "Information"	# Off | Error | Verbose | Information | Warning
         sas_url                             = "${var.log_storage_account_blob_endpoint}${var.log_storage_account_container_name}${data.azurerm_storage_account_blob_container_sas.forum_logs.sas}"
-        retention_in_days                   = 7			# TODO - Extend for production
+        retention_in_days                   = 90
       }
     }
 
     http_logs {
       azure_blob_storage { 
         sas_url                             = "${var.log_storage_account_blob_endpoint}${var.log_storage_account_container_name}${data.azurerm_storage_account_blob_container_sas.forum_logs.sas}"
-        retention_in_days                   = 7			# TODO - Extend for production
+        retention_in_days                   = 90
       }
       #file_system {
-      #  retention_in_days                   = 7
+      #  retention_in_days                   = 90
       #  retention_in_mb                     = 35
       #}
     }
@@ -232,7 +247,7 @@ resource "azurerm_monitor_diagnostic_setting" "main" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
@@ -247,7 +262,7 @@ resource "azurerm_monitor_diagnostic_setting" "main" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }

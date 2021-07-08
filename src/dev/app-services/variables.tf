@@ -6,6 +6,8 @@ variable product_name { type = string }
 
 variable resource_group_name { type = string }
 
+variable virtual_network_application_gateway_subnet_id { type = string }
+
 variable log_storage_account_connection_string { 
   type = string
   sensitive = true

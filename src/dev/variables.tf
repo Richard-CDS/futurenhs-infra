@@ -42,6 +42,18 @@ variable security_center_contact_email {
 
   #validation {
   #  condition     = length(regexall("/^w+[+.w-]*@([w-]+.)*w+[w-]*.([a-z]{2,4}|d+)$/i", var.sqlserver_admin_email)) > 0
-  #  error_message = "The sqlserver_admin_email variable must contain an email address."
+  #  error_message = "The security_center_contact_email variable must contain an email address."
   #}
+}
+
+variable security_center_contact_phone {
+  type = string
+  #sensitive = true
+}
+
+variable appgw_tls_certificate_path { type = string }
+
+variable appgw_tls_certificate_password { 
+    type         = string
+    sensitive    = true
 }

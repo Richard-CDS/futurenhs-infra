@@ -7,6 +7,8 @@ module "forum" {
   environment                                                   = var.environment
   product_name                                                  = var.product_name
 
+  virtual_network_application_gateway_subnet_id                 = var.virtual_network_application_gateway_subnet_id
+
   log_storage_account_id                                        = var.log_storage_account_id
   log_storage_account_connection_string                         = var.log_storage_account_connection_string
   log_storage_account_blob_endpoint                             = var.log_storage_account_blob_endpoint

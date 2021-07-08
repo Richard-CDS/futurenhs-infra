@@ -24,6 +24,9 @@ resource "azurerm_key_vault_secret" "appconfig_primary_forum_connection_string" 
   name                                      = "appcs-${var.product_name}-${var.environment}-${var.location}-forum-connection-string"
   value                                     = azurerm_app_configuration.main.primary_read_key.0.connection_string
   key_vault_id                              = var.key_vault_id
+
+  content_type                              = "text/plain"
+  expiration_date                           = timeadd(timestamp(), "87600h")   
 }
 
 data "azurerm_monitor_diagnostic_categories" "main" {

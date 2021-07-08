@@ -7,17 +7,18 @@ resource "azurerm_application_insights" "forum" {
   # TODO - change these settings for a production environment
 
   daily_data_cap_in_gb                    = 1
-  daily_data_cap_notifications_disabled   = true
-  retention_in_days                       = 30
   sampling_percentage                     = 100
-  disable_ip_masking                      = true
+
+  daily_data_cap_notifications_disabled   = false
+  retention_in_days                       = 120
+  disable_ip_masking                      = false
 }
 
 # https://docs.microsoft.com/en-gb/azure/azure-monitor/app/monitor-web-app-availability
 
 resource "azurerm_application_insights_web_test" "forum-availability-test" {
   name                    = "appiwt-${var.product_name}-${var.environment}-${var.location}-forum"
-  description             = "Example - http ping test hitting the root page of the forum website using the internal Azure domain"
+  description             = "Http ping test hitting the root page of the forum website using the internal Azure domain"
   location                = var.location
   resource_group_name     = var.resource_group_name
   application_insights_id = azurerm_application_insights.forum.id

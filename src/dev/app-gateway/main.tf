@@ -9,9 +9,9 @@ resource "azurerm_network_watcher_flow_log" "default" {
 
   retention_policy {
     enabled                                      = true
-    days                                         = 7
+    days                                         = 120
   }
-
+ 
   traffic_analytics {
     enabled                                      = true
     workspace_id                                 = var.log_analytics_workspace_id
@@ -60,7 +60,7 @@ resource "azurerm_monitor_diagnostic_setting" "pip" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
@@ -75,7 +75,7 @@ resource "azurerm_monitor_diagnostic_setting" "pip" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
@@ -85,6 +85,41 @@ resource "azurerm_network_security_group" "default" {
   name                                           = "nsg-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-default"
   location                                       = var.location
   resource_group_name                            = var.resource_group_name
+}
+
+# We need a security rule to allow the Application Gateway to communicate 
+# https://docs.microsoft.com/en-us/azure/application-gateway/configuration-infrastructure#network-security-groups
+
+resource "azurerm_network_security_rule" "allow_gateway_manager_inbound" {
+  name                                           = "AllowGatewayManagerInbound"
+  description                                    = "Authorise App Gateway Manager"
+  priority                                       = 100 # 100 - 4096
+  direction                                      = "Inbound" # Inbound | Outbound
+  access                                         = "Allow" # Allow | Deny
+  protocol                                       = "Tcp" # Tcp | Udp | Icmp | Esp | Ah | *
+  source_port_range                              = "*"
+  destination_port_range                         = "65200-65535"
+  source_address_prefix                          = "GatewayManager"
+  destination_address_prefix                     = "*"
+  resource_group_name                            = var.resource_group_name
+  network_security_group_name                    = azurerm_network_security_group.default.name
+}
+
+# Open up access to public over http/s
+
+resource "azurerm_network_security_rule" "allow_public_http_inbound" {
+  name                                           = "AllowPublicHttpInbound"
+  description                                    = "Authorise Https(s) requests from the internet to access the web application"
+  priority                                       = 101 
+  direction                                      = "Inbound" 
+  access                                         = "Allow" 
+  protocol                                       = "Tcp" 
+  source_port_range                              = "*"
+  destination_port_ranges                        = [ "80", "443" ]
+  source_address_prefix                          = "*"
+  destination_address_prefix                     = "*"
+  resource_group_name                            = var.resource_group_name
+  network_security_group_name                    = azurerm_network_security_group.default.name
 }
 
 data "azurerm_monitor_diagnostic_categories" "nsg" {
@@ -107,7 +142,7 @@ resource "azurerm_monitor_diagnostic_setting" "nsg" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
@@ -122,19 +157,27 @@ resource "azurerm_monitor_diagnostic_setting" "nsg" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
 }
 
+resource "azurerm_subnet_network_security_group_association" "default_subnet" {
+  subnet_id                                      = azurerm_subnet.default.id
+  network_security_group_id                      = azurerm_network_security_group.default.id
+
+  depends_on = [ 
+    azurerm_network_security_rule.allow_gateway_manager_inbound  
+  ]
+}
 
 resource "azurerm_application_gateway" "default" {
   name                                           = "agw-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-default"
   resource_group_name                            = var.resource_group_name
   location                                       = var.location
   zones                                          = ["1","2","3"]
-  enable_http2                                   = false  
+  enable_http2                                   = true  
 
   sku {
     name     = "WAF_v2"
@@ -220,12 +263,12 @@ resource "azurerm_application_gateway" "default" {
     frontend_ip_configuration_name               = "agw-frontend-ipconfig-public"
     frontend_port_name                           = "agw-frontend-port-443"
     protocol                                     = "Https"
-    ssl_certificate_name                         = var.forum_app_key_vault_certificate_name
+    ssl_certificate_name                         = var.key_vault_certificate_https_name
   }
 
   ssl_certificate {
-    name                                         = var.forum_app_key_vault_certificate_name
-    key_vault_secret_id                          = var.forum_app_key_vault_certificate_secret_id
+    name                                         = var.key_vault_certificate_https_name
+    key_vault_secret_id                          = var.key_vault_certificate_https_versionless_secret_id
   }
 
   backend_http_settings {
@@ -281,7 +324,7 @@ resource "azurerm_monitor_diagnostic_setting" "agw-waf" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
@@ -296,7 +339,7 @@ resource "azurerm_monitor_diagnostic_setting" "agw-waf" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }

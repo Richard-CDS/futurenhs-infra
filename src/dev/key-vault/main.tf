@@ -11,9 +11,13 @@ resource "azurerm_key_vault" "main" {
   soft_delete_retention_days             = 90
   purge_protection_enabled               = true
 
-  sku_name = "standard"
+  sku_name                               = "standard"
 
-  # network_acls {} #TODO  
+  #network_acls {
+  #  default_action                       = "Deny"                          # Allow | Deny
+  #  bypass                               = "AzureServices"                 # AzureServices | None - see https://docs.microsoft.com/en-us/azure/key-vault/general/overview-vnet-service-endpoints#trusted-services
+  #  ip_rules                             = [ var.host_agent_ip_address ]   # Allow host pipeline to access kv so it can add secrets etc 
+  #}   
 
 
 
@@ -140,59 +144,33 @@ resource "azurerm_monitor_diagnostic_setting" "main" {
 }
 
 
-# TODO - Remove the certificate creation from this file -
-# Create a temporary self-signed certificate that the application gateway can use for HTTPS management.  This will eventually be replaced by a certificate we 
-# generate for a specific wildcard domain using something like LetsEncrypt, and push direct to the key vault as it is renewed.  This lifecycle will be managed
-# outside of this terraform script
+# Upload a certificate that the application gateway can use for HTTPS management.  
+# The pfx file is of course safe (assuming it has appropriate password) to share in public repository
+# but I'd recommend you don't do so just for super peace of mind  
 
 resource "azurerm_key_vault_certificate" "app_forum_https" {
-  name                                   = "agw-tls-certificate"
+  name                                   = "agw-certificate-tls-001"
   key_vault_id                           = azurerm_key_vault.main.id
+
+  certificate {
+    contents = filebase64("${path.module}/${var.appgw_tls_certificate_path}")
+    password = var.appgw_tls_certificate_password
+  }
 
   certificate_policy {
     issuer_parameters {
-      name = "Self"
+      name = "Unknown"
     }
 
     key_properties {
       exportable = true
       key_size   = 2048
       key_type   = "RSA"
-      reuse_key  = true
-    }
-
-    lifetime_action {
-      action {
-        action_type = "AutoRenew"
-      }
-
-      trigger {
-        days_before_expiry = 30
-      }
+      reuse_key  = false
     }
 
     secret_properties {
       content_type = "application/x-pkcs12"
-    }
-
-    x509_certificate_properties {
-      extended_key_usage = ["1.3.6.1.5.5.7.3.1"] # Server authentication
-
-      key_usage = [
-        "cRLSign",
-        "dataEncipherment",
-        "digitalSignature",
-        "keyAgreement",
-        "keyCertSign",
-        "keyEncipherment",
-      ]
-
-      subject_alternative_names {
-        dns_names = ["futurenhs.cds.co.uk"]
-      }
-
-      subject            = "CN=futurenhs.cds.co.uk"
-      validity_in_months = 3
     }
   }
 }

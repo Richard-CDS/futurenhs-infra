@@ -14,13 +14,13 @@ resource "azurerm_mssql_database" "forum" {
     disabled_alerts                         = []
     email_account_admins                    = "Enabled"
     email_addresses                         = [ var.sqlserver_admin_email ]
-    retention_days                          = 7
+    retention_days                          = 120
     storage_endpoint                        = var.log_storage_account_blob_endpoint
     storage_account_access_key              = var.log_storage_account_access_key
   }
 
   short_term_retention_policy {
-    retention_days                          = 7
+    retention_days                          = 7 # 1-7 days
   }
 
   long_term_retention_policy {
@@ -56,7 +56,7 @@ resource "azurerm_monitor_diagnostic_setting" "sqldb" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
@@ -71,7 +71,7 @@ resource "azurerm_monitor_diagnostic_setting" "sqldb" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90
       }
     }
   }
@@ -81,4 +81,7 @@ resource "azurerm_key_vault_secret" "sqlserver_primary_forumdb_connection_string
   name                                      = "sqldb-${var.product_name}-${var.environment}-${var.location}-forum-connection-string"
   value                                     = "Server=tcp:${var.sql_server_primary_fully_qualified_domain_name},1433;Initial Catalog=sqldb-${var.product_name}-${var.environment}-${var.location}-forum;Persist Security Info=False;User ID=${var.database_login_user};Password=${var.database_login_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
   key_vault_id                              = var.key_vault_id
+
+  content_type                              = "text/plain"
+  expiration_date                           = timeadd(timestamp(), "87600h")   
 }

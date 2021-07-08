@@ -8,6 +8,9 @@ resource "azurerm_key_vault_secret" "sqlserver_admin_user" {
   value                                         = random_password.sqlserver_admin_user.result
   key_vault_id                                  = var.key_vault_id
 
+  content_type                                  = "text/plain"
+  expiration_date                               = timeadd(timestamp(), "87600h")   
+
   lifecycle {
     ignore_changes = [
       value
@@ -28,6 +31,9 @@ resource "azurerm_key_vault_secret" "sqlserver_admin_pwd" {
   name                                          = "${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-sqlserver-adminpwd"
   value                                         = random_password.sqlserver_admin_pwd.result
   key_vault_id                                  = var.key_vault_id
+
+  content_type                                  = "text/plain"
+  expiration_date                               = timeadd(timestamp(), "87600h")   
 
   lifecycle {
     ignore_changes = [
@@ -61,21 +67,24 @@ resource "azurerm_mssql_server_extended_auditing_policy" "primary" {
   storage_endpoint                              = var.log_storage_account_blob_endpoint
   storage_account_access_key                    = var.log_storage_account_access_key
   storage_account_access_key_is_secondary       = false
-  retention_in_days                             = 7
+  retention_in_days                             = 120
   log_monitoring_enabled                        = true
 }
 
 resource "azurerm_mssql_server_security_alert_policy" "primary" {
+  #checkov:skip=CKV2_AZURE_3:The recurring_scans policy is handled by the azurerm_mssql_server_vulnerability_assessment.primary resource
   resource_group_name                           = var.resource_group_name
   server_name                                   = azurerm_mssql_server.primary.name
   state                                         = "Enabled"
+  email_account_admins                          = true
+  email_addresses                               = [ var.sqlserver_admin_email ]   
 }
 
 resource "azurerm_mssql_server_vulnerability_assessment" "primary" {
   server_security_alert_policy_id               = azurerm_mssql_server_security_alert_policy.primary.id
   storage_container_path                        = "${var.log_storage_account_blob_endpoint}${var.log_storage_account_sql_server_vulnerability_assessments_container_name}/"
   storage_account_access_key                    = var.log_storage_account_access_key
-
+  
   recurring_scans {
     enabled                   = true
     email_subscription_admins = true
@@ -121,7 +130,7 @@ data "azurerm_mssql_database" "master" {
 
 #      retention_policy {
 #        enabled = true
-#        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+#        days    = 90        # Set to 0 for infinite retention
 #      }
 #    }
 #  }
@@ -136,7 +145,7 @@ data "azurerm_mssql_database" "master" {
 
 #      retention_policy {
 #        enabled = true
-#        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+#        days    = 90        # Set to 0 for infinite retention
 #      }
 #    }
 #  }
@@ -194,7 +203,7 @@ resource "azurerm_monitor_diagnostic_setting" "sqlep" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90        # Set to 0 for infinite retention
       }
     }
   }
@@ -209,7 +218,7 @@ resource "azurerm_monitor_diagnostic_setting" "sqlep" {
 
       retention_policy {
         enabled = true
-        days    = 7        # TODO - Increase for production or set to 0 for infinite retention
+        days    = 90        # Set to 0 for infinite retention
       }
     }
   }

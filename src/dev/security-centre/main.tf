@@ -48,7 +48,7 @@ resource "azurerm_security_center_workspace" "main" {
 
 resource "azurerm_security_center_contact" "main" {
   email               = var.security_center_contact_email
-  phone               = null
+  phone               = var.security_center_contact_phone
   alert_notifications = true
   alerts_to_admins    = true
 
