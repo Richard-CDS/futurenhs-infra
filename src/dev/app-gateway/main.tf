@@ -29,6 +29,13 @@ resource "azurerm_subnet" "default" {
 
   enforce_private_link_endpoint_network_policies = false
   enforce_private_link_service_network_policies  = false
+
+  service_endpoints                              = [
+    "Microsoft.KeyVault",
+    "Microsoft.Sql", 
+    "Microsoft.Storage",
+    "Microsoft.Web"
+  ]
 }
 
 resource "azurerm_public_ip" "default" {
