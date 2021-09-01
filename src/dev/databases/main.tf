@@ -1,3 +1,15 @@
+# We need 'Read directory data' permissions within the 'Windows Azure Active Directory' API
+# see https://registry.terraform.io/providers/hashicorp/azuread/latest/docs/data-sources/user for more info
+
+# TODO - Having some grief trying to ascertain the correct privileges needed by the deployment pipeline host in order
+#        to access the MS Graph and pull out AAD ids.  Followed about referenced docs to no avail.  Parking for now
+#        and object_id being passed in as variable, but revisit in future when time allows as this is the preferred
+#        method
+
+#data "azuread_user" "azuread_administrator" {
+#  user_principal_name = var.sqlserver_active_directory_administrator_login_name
+#}
+
 resource "random_password" "sqlserver_admin_user" {
   length                                        = 20
   special                                       = true
@@ -46,6 +58,8 @@ resource "azurerm_key_vault_secret" "sqlserver_admin_pwd" {
 # All Azure SQL databases are automatically backed up to RA-GRS by the server.
 
 resource "azurerm_mssql_server" "primary" {
+  #checkov:skip=CKV_AZURE_23:The sql server configures auditing using a separate azurerm_mssql_server_extended_auditing_policy resource that Checkov doesn't seem to be considering
+  #checkov:skip=CKV_AZURE_24:The sql server configures auditing using a separate azurerm_mssql_server_extended_auditing_policy resource that Checkov doesn't seem to be considering
   name                                          = "sql-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-primary"
   resource_group_name                           = var.resource_group_name
   location                                      = var.location
@@ -60,6 +74,19 @@ resource "azurerm_mssql_server" "primary" {
   identity {
     type = "SystemAssigned"
   }
+
+  azuread_administrator {
+    #login_username = data.azuread_user.azuread_administrator.user_principal_name
+    #object_id      = data.azuread_user.azuread_administrator.id 
+    login_username = var.sqlserver_active_directory_administrator_login_name
+    object_id      = var.sqlserver_active_directory_administrator_objectid
+  }
+}
+
+resource "azurerm_role_assignment" "primary_sql_server_blob_data_contributor" {
+  scope                = var.log_storage_account_id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_mssql_server.primary.identity.0.principal_id
 }
 
 resource "azurerm_mssql_server_extended_auditing_policy" "primary" {
@@ -68,7 +95,8 @@ resource "azurerm_mssql_server_extended_auditing_policy" "primary" {
   storage_account_access_key                    = var.log_storage_account_access_key
   storage_account_access_key_is_secondary       = false
   retention_in_days                             = 120
-  log_monitoring_enabled                        = true
+  log_monitoring_enabled                        = true 
+  
 }
 
 resource "azurerm_mssql_server_security_alert_policy" "primary" {

@@ -1,81 +1,81 @@
 # Standard SKU minimum needed for dedicated cluster and partitioning to assure 99.9% uptime SLA
 
-resource "azurerm_search_service" "main" {
-  name                		= "srch-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-001"
-  resource_group_name 		= var.resource_group_name
-  location            		= var.location
-  sku                 		= "basic"			# changing forces recreation - free | basic | standard | standard2 | standard3 | storage_optimized_l1 | storage_optimized_l2
+#resource "azurerm_search_service" "main" {
+#  name                		= "srch-${lower(var.product_name)}-${lower(var.environment)}-${lower(var.location)}-001"
+#  resource_group_name 		= var.resource_group_name
+#  location            		= var.location
+#  sku                 		= "basic"			# changing forces recreation - free | basic | standard | standard2 | standard3 | storage_optimized_l1 | storage_optimized_l2
 
-  public_network_access_enabled = true
+#  public_network_access_enabled = true
 
-  identity {
-    type 			= "SystemAssigned"
-  }
+#  identity {
+#    type 			= "SystemAssigned"
+#  }
   
-  #partition_count		= 3				# only available for sku level >= standard
-  #replica_count		= 3				# only available for sku level >= standard
+#  #partition_count		= 3				# only available for sku level >= standard
+#  #replica_count		= 3				# only available for sku level >= standard
 
-  #allowed_ips			= []				
-}
+#  #allowed_ips			= []				
+#}
 
-data "azurerm_monitor_diagnostic_categories" "srch" {
-  resource_id                                  = azurerm_search_service.main.id
-}
+#data "azurerm_monitor_diagnostic_categories" "srch" {
+#  resource_id                                  = azurerm_search_service.main.id
+#}
 
-resource "azurerm_monitor_diagnostic_setting" "pip" {
-  name                                         = "srch-diagnostics"
-  target_resource_id                           = azurerm_search_service.main.id
-  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
-  storage_account_id                           = var.log_storage_account_id
+#resource "azurerm_monitor_diagnostic_setting" "pip" {
+#  name                                         = "srch-diagnostics"
+#  target_resource_id                           = azurerm_search_service.main.id
+#  log_analytics_workspace_id                   = var.log_analytics_workspace_resource_id
+#  storage_account_id                           = var.log_storage_account_id
 
-  dynamic "log" {
-    iterator = log_category
-    for_each = data.azurerm_monitor_diagnostic_categories.srch.logs
+#  dynamic "log" {
+#    iterator = log_category
+#    for_each = data.azurerm_monitor_diagnostic_categories.srch.logs
 
-    content {
-      category = log_category.value
-      enabled  = true
+#    content {
+#      category = log_category.value
+#      enabled  = true
 
-      retention_policy {
-        enabled = true
-        days    = 90
-      }
-    }
-  }
+#      retention_policy {
+#        enabled = true
+#        days    = 90
+#      }
+#    }
+#  }
 
-  dynamic "metric" {
-    iterator = metric_category
-    for_each = data.azurerm_monitor_diagnostic_categories.srch.metrics
+#  dynamic "metric" {
+#    iterator = metric_category
+#    for_each = data.azurerm_monitor_diagnostic_categories.srch.metrics
 
-    content {
-      category = metric_category.value
-      enabled  = true
+#    content {
+#      category = metric_category.value
+#      enabled  = true
 
-      retention_policy {
-        enabled = true
-        days    = 90
-      }
-    }
-  }
-}
+#      retention_policy {
+#        enabled = true
+#        days    = 90
+#      }
+#    }
+#  }
+#}
 
 
 
 # PUT request to create Cognitive Search data source that links to the forum database to index searching for groups
 
-locals {
-  forum_search_data_source_name             = var.forum_sql_database_name
+#locals {
+#  forum_search_data_source_name             = var.forum_sql_database_name
 
-  forum_search_data_source_parameters = {
-    search_data_source_name                 = local.forum_search_data_source_name
-    connection_string                       = var.forum_database_connection_string
-    view_name                               = "[dbo].[vw_search_groups]"
-  }
+#  forum_search_data_source_parameters = {
+#    search_data_source_name                 = local.forum_search_data_source_name
+#    connection_string                       = var.forum_database_connection_string
+#    view_name                               = "[dbo].[vw_search_groups]"
+#  }
 
-  forum_raw_search_data_source_config       = templatefile("${path.module}/forumdb_search_data_source.json", local.forum_search_data_source_parameters)
+#  forum_raw_search_data_source_config       = templatefile("${path.module}/forumdb_search_data_source.json", local.forum_search_data_source_parameters)
 
-  forum_search_data_source_config           = replace(replace(local.forum_raw_search_data_source_config, "\n", " "), "\"", "\\\"") 
-}
+#  forum_search_data_source_config           = replace(replace(local.forum_raw_search_data_source_config, "\n", " "), "\"", "\\\"") 
+#}
 
 #resource "null_resource" "terraform-debug" {
 #  provisioner "local-exec" {

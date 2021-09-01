@@ -1,4 +1,5 @@
 resource "azurerm_storage_account" "logs" {
+  #checkov:skip=CKV_AZURE_43:There is a bug in checkov (https://github.com/bridgecrewio/checkov/issues/741) that is giving a false positive on this rule so temp suppressing this rule check
   name                      = "sa${var.product_name}${var.environment}${var.location}logs"
   resource_group_name       = var.resource_group_name
   location                  = var.location
@@ -12,6 +13,17 @@ resource "azurerm_storage_account" "logs" {
   enable_https_traffic_only = true
   min_tls_version           = "TLS1_2"
   allow_blob_public_access  = false
+
+  # add a network rule to deny all public traffic access to the storage account
+  # https://docs.microsoft.com/en-us/azure/storage/common/storage-network-security
+  
+  # TODO - this is causing problems for terraform plan - can't get data on the containers so will need to be 
+  #        reenabled once we have fixed ip addresses for the agent pool used by the deployment pipeline
+
+  #network_rules {
+  #  default_action          = "Deny"
+  #  bypass                  = [ "AzureServices" ]
+  #}
 }
 
 resource "azurerm_storage_container" "appsvclogs" {

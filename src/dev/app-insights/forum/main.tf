@@ -3,6 +3,8 @@ module "forum_production_slot" {
 
   resource_group_name                         = var.resource_group_name
 
+  application_fqdn                            = var.application_fqdn
+
   location                                    = var.location
   environment                                 = var.environment
   product_name                                = var.product_name

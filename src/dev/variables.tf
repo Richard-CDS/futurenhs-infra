@@ -1,3 +1,5 @@
+variable application_fqdn { type = string }
+
 variable location {
   type = string
 
@@ -34,6 +36,16 @@ variable sqlserver_admin_email {
   #  condition     = length(regexall("/^w+[+.w-]*@([w-]+.)*w+[w-]*.([a-z]{2,4}|d+)$/i", var.sqlserver_admin_email)) > 0
   #  error_message = "The sqlserver_admin_email variable must contain an email address."
   #}
+}
+
+variable sqlserver_active_directory_administrator_login_name {
+  type = string
+  #sensitive = true
+}
+
+variable sqlserver_active_directory_administrator_objectid {
+  type = string
+  #sensitive = true
 }
 
 variable security_center_contact_email {

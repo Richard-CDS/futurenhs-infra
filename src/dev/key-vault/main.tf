@@ -13,6 +13,9 @@ resource "azurerm_key_vault" "main" {
 
   sku_name                               = "standard"
 
+  # TODO - Comment this lot back in once we have static ip addresses for the host agent deploying the infrastructure
+  #        At the moment, if we add the firewall rule, TF is thereafter unable to access it to make changes
+  
   #network_acls {
   #  default_action                       = "Deny"                          # Allow | Deny
   #  bypass                               = "AzureServices"                 # AzureServices | None - see https://docs.microsoft.com/en-us/azure/key-vault/general/overview-vnet-service-endpoints#trusted-services
@@ -55,7 +58,7 @@ resource "azurerm_key_vault" "main" {
     ]
   }
 
-  # 2. The app-service hosting the core/forum code uses a kv reference to lookup database connection string
+  # 2. The app-service hosting the core/forum code uses a kv reference to lookup database connection string etc
 
   access_policy {
     tenant_id                            = data.azurerm_client_config.current.tenant_id
@@ -66,7 +69,37 @@ resource "azurerm_key_vault" "main" {
     ]
   }
 
-  # 3. The app configuration service which may expose secrets to clients using key vault references
+  access_policy {
+    tenant_id                            = data.azurerm_client_config.current.tenant_id
+    object_id                            = var.principal_id_forum_staging_app_svc
+
+    secret_permissions = [
+      "Get"
+    ]
+  }
+
+  # 3. The app-service hosting the file server code uses a kv reference to lookup database connection string etc
+  # TODO - Might end up removing this if we store connection string in app configuration service instead
+
+  access_policy {
+    tenant_id                            = data.azurerm_client_config.current.tenant_id
+    object_id                            = var.principal_id_files_app_svc
+
+    secret_permissions = [
+      "Get"
+    ]
+  }
+
+  access_policy {
+    tenant_id                            = data.azurerm_client_config.current.tenant_id
+    object_id                            = var.principal_id_files_staging_app_svc
+
+    secret_permissions = [
+      "Get"
+    ]
+  }
+
+  # 4. The app configuration service which may expose secrets to clients using key vault references
 
   access_policy {
     tenant_id                            = data.azurerm_client_config.current.tenant_id

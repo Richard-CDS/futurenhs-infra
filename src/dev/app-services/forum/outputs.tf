@@ -13,3 +13,7 @@ output app_service_fqdn {
 output principal_id {
   value = azurerm_app_service.forum.identity[0].principal_id
 }
+
+output principal_id_staging {
+  value = azurerm_app_service_slot.forum.identity[0].principal_id
+}

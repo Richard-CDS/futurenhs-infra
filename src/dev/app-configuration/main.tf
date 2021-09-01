@@ -13,7 +13,7 @@ resource "azurerm_app_configuration" "main" {
   resource_group_name = var.resource_group_name
   location            = var.location
 
-  sku                 = "free" 				# free | standard
+  sku                 = "free" 				# free | standard  # TODO - use standard for production for more requests, storage and private link support
   
   identity { 
     type              = "SystemAssigned"
@@ -73,7 +73,7 @@ resource "azurerm_monitor_diagnostic_setting" "main" {
 
 # TODO - Comment back in once the terraform state file has been fixed by importing these resources
 
-# Give current identity the relevant permission to add new key values
+# Give current identity the relevant permission to add new key values - unless we can figure out how to use connection string
 
 #resource "azurerm_role_assignment" "data-owner" {
 #  scope                = azurerm_app_configuration.main.id
@@ -81,15 +81,7 @@ resource "azurerm_monitor_diagnostic_setting" "main" {
 #  principal_id         = data.azurerm_client_config.current.object_id
 #}
 
-# Give relevant services access to the configuration store using their managed identities
 
-# 1. Forum App Service (web app)
-
-#resource "azurerm_role_assignment" "forum-app-service" {
-#  scope                = azurerm_app_configuration.main.id
-#  role_definition_name = "App Configuration Data Reader"
-#  principal_id         = var.principal_id_forum_app_svc
-#}
 
 
 
@@ -100,7 +92,7 @@ resource "azurerm_monitor_diagnostic_setting" "main" {
 # TODO - AzureRM doesn't support doing this so temporarily using a custom provider to handle it for us
 
 #resource "akc_key_value" "forum-sentinel-key" {
-#  endpoint            = azurerm_app_configuration.main.endpoint
+#  endpoint            = azurerm_app_configuration.main.endpoint   # shoudl we use connection string instead?
 #  label               = var.environment
 #  key                 = "Forum_SentinelKey"
 #  value               = "1"

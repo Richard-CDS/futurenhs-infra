@@ -23,15 +23,21 @@ provider "azurerm" {
 #}
 
 locals {
-  sanitized_product_name                                = lower(replace(var.product_name, "/[^A-Za-z0-9]/", ""))
-  sanitized_environment                                 = lower(replace(var.environment, "/[^A-Za-z0-9]/", ""))
-  sanitized_location                                    = lower(var.location)
+  sanitized_product_name                                     = lower(replace(var.product_name, "/[^A-Za-z0-9]/", ""))
+  sanitized_environment                                      = lower(replace(var.environment, "/[^A-Za-z0-9]/", ""))
+  sanitized_location                                         = lower(var.location)
 
-  resource_group_name                                   = "rg-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-001"
+  resource_group_name                                        = "rg-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-001"
 
-  forum_db_keyvault_connection_string_reference         = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/sqldb-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)"  
-  forum_blob_keyvault_connection_string_reference       = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/blobs-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)"
-  forum_app_config_keyvault_connection_string_reference = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/appcs-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)"
+  forum_db_keyvault_readwrite_connection_string_reference    = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/sqldb-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)"  
+  forum_db_keyvault_readonly_connection_string_reference     = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/sqldb-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-readonly-connection-string)"  
+  forum_blob_keyvault_connection_string_reference            = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/blobs-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-connection-string)"
+  forum_redis_primary_keyvault_connection_string_reference   = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/redis-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-primary-connection-string)"
+  forum_redis_secondary_keyvault_connection_string_reference = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/redis-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-forum-secondary-connection-string)"
+
+  files_db_keyvault_readwrite_connection_string_reference    = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/sqldb-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-files-readwrite-connection-string)"
+  files_db_keyvault_readonly_connection_string_reference     = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/sqldb-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-files-readonly-connection-string)"
+  files_blob_keyvault_connection_string_reference            = "@Microsoft.KeyVault(SecretUri=https://kv-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}.vault.azure.net/secrets/blobs-${lower(local.sanitized_product_name)}-${lower(local.sanitized_environment)}-${lower(local.sanitized_location)}-files-connection-string)"
 }
 
 
@@ -105,7 +111,10 @@ module "key-vault" {
   appgw_tls_certificate_password                        = var.appgw_tls_certificate_password
 
   principal_id_forum_app_svc                            = module.app-services.principal_id_forum
-  principal_id_app_configuration_svc                    = module.app-configuration.principal_id
+  principal_id_forum_staging_app_svc                    = module.app-services.principal_id_forum_staging
+  principal_id_files_app_svc                            = module.app-services.principal_id_files
+  principal_id_files_staging_app_svc                    = module.app-services.principal_id_files_staging
+  principal_id_app_configuration_svc                    = module.app-configuration.primary_principal_id
   principal_id_app_gateway_svc                          = module.identities.principal_id_app_gateway_svc
 }
 
@@ -137,6 +146,8 @@ module "app-insights" {
   source                                                = "./app-insights"
 
   resource_group_name                                   = module.resource-group.resource_group_name
+
+  application_fqdn                                      = var.application_fqdn
 
   location                                              = var.location
   environment                                           = var.environment
@@ -182,13 +193,16 @@ module "app-gateway" {
   log_analytics_workspace_id                            = module.logging.log_analytics_workspace_id
   log_analytics_workspace_resource_id                   = module.logging.log_analytics_workspace_resource_id
 
+  forum_primary_blob_fqdn                               = module.storage.forum_primary_blob_fqdn
+  forum_primary_blob_container_name                     = module.storage.forum_primary_blob_container_name
+
   location                                              = var.location
   environment                                           = var.environment
   product_name                                          = var.product_name
 }
 
-module "app-services" {
-  source                                                = "./app-services"
+module "caching" {
+  source                                                = "./caching"
 
   resource_group_name                                   = module.resource-group.resource_group_name
 
@@ -196,7 +210,27 @@ module "app-services" {
   environment                                           = var.environment
   product_name                                          = var.product_name
 
+  key_vault_id                                          = module.key-vault.key_vault_id
+
+  log_storage_account_id                                = module.logging.log_storage_account_id
+
+  log_analytics_workspace_resource_id                   = module.logging.log_analytics_workspace_resource_id
+}
+
+module "app-services" {
+  source                                                = "./app-services"
+  
+  application_fqdn                                      = var.application_fqdn
+  
+  resource_group_name                                   = module.resource-group.resource_group_name
+
+  location                                              = var.location
+  environment                                           = var.environment
+  product_name                                          = var.product_name
+
+  virtual_network_name                                  = module.virtual-network.virtual_network_name
   virtual_network_application_gateway_subnet_id         = module.app-gateway.virtual_network_application_gateway_subnet_id
+  virtual_network_security_group_id                     = module.app-gateway.virtual_network_security_group_id
 
   log_storage_account_blob_endpoint                     = module.logging.log_storage_account_blob_endpoint
   log_storage_account_connection_string                 = module.logging.log_storage_account_connection_string
@@ -205,14 +239,41 @@ module "app-services" {
 
   log_analytics_workspace_resource_id                   = module.logging.log_analytics_workspace_resource_id
 
-  forum_app_config_primary_endpoint                     = module.app-configuration.endpoint
-
   forum_primary_blob_container_endpoint                 = module.storage.forum_primary_blob_container_endpoint
   forum_primary_blob_container_resource_manager_id      = module.storage.forum_primary_blob_container_resource_manager_id
   forum_primary_blob_container_name                     = module.storage.forum_primary_blob_container_name
 
+  forum_app_config_primary_endpoint                     = module.app-configuration.primary_endpoint
+  forum_app_config_secondary_endpoint                   = module.app-configuration.secondary_endpoint
+  forum_primary_app_configuration_id                    = module.app-configuration.primary_app_configuration_id
+
   forum_app_insights_instrumentation_key                = module.app-insights.forum_instrumentation_key
   forum_app_insights_connection_string                  = module.app-insights.forum_connection_string
+  forum_staging_app_insights_instrumentation_key        = module.app-insights.forum_staging_instrumentation_key
+  forum_staging_app_insights_connection_string          = module.app-insights.forum_staging_connection_string
+
+  files_primary_blob_container_endpoint                 = module.storage.files_primary_blob_container_endpoint # TODO - retire once files taken out of mvcforum
+  files_primary_blob_container_name                     = module.storage.files_primary_blob_container_name     # TODO - retire once files taken out of mvcforum
+
+  files_primary_blob_resource_manager_id                = module.storage.files_primary_blob_resource_manager_id
+  files_primary_blob_container_resource_manager_id      = module.storage.files_primary_blob_container_resource_manager_id
+  files_blob_primary_endpoint                           = module.storage.files_blob_primary_endpoint
+  files_blob_secondary_endpoint                         = module.storage.files_blob_secondary_endpoint
+  files_blob_container_name                             = module.storage.files_primary_blob_container_name
+
+  files_app_config_primary_endpoint                     = module.app-configuration.primary_endpoint
+  files_app_config_secondary_endpoint                   = module.app-configuration.secondary_endpoint
+  files_primary_app_configuration_id                    = module.app-configuration.primary_app_configuration_id
+
+  files_app_insights_instrumentation_key                = module.app-insights.files_instrumentation_key
+  files_app_insights_connection_string                  = module.app-insights.files_connection_string
+  files_staging_app_insights_instrumentation_key        = module.app-insights.files_staging_instrumentation_key
+  files_staging_app_insights_connection_string          = module.app-insights.files_staging_connection_string
+
+  collabora_app_insights_instrumentation_key            = module.app-insights.collabora_instrumentation_key
+  collabora_app_insights_connection_string              = module.app-insights.collabora_connection_string
+  collabora_staging_app_insights_instrumentation_key    = module.app-insights.collabora_staging_instrumentation_key
+  collabora_staging_app_insights_connection_string      = module.app-insights.collabora_staging_connection_string
 
   # There is a dependency between the key vault access policies and the app services that use it to host their secrets.  Unfortunately, we have to create access policies when the vault is 
   # created (which means we need the identities of the consuming services) otherwise we run into problems where the deployment pipeline cannot manage the secrets using these terraform scripts.  
@@ -220,9 +281,15 @@ module "app-services" {
   # we have to hard code key vault references here (the app-service config must be defined with the app-service resource as azurerm does not support a separate resource for doing so)
   # rather than feeding it in from the key-vault module.  
 
-  forum_db_keyvault_connection_string_reference                           = local.forum_db_keyvault_connection_string_reference
+  forum_db_keyvault_readwrite_connection_string_reference                 = local.forum_db_keyvault_readwrite_connection_string_reference
+  forum_db_keyvault_readonly_connection_string_reference                  = local.forum_db_keyvault_readonly_connection_string_reference
   forum_primary_blob_keyvault_connection_string_reference                 = local.forum_blob_keyvault_connection_string_reference
-  forum_app_config_primary_keyvault_connection_string_reference           = local.forum_app_config_keyvault_connection_string_reference
+  forum_redis_primary_keyvault_connection_string_reference                = local.forum_redis_primary_keyvault_connection_string_reference
+  forum_redis_secondary_keyvault_connection_string_reference              = local.forum_redis_secondary_keyvault_connection_string_reference
+
+  files_primary_blob_keyvault_connection_string_reference                 = local.files_blob_keyvault_connection_string_reference
+  files_db_keyvault_readwrite_connection_string_reference                 = local.files_db_keyvault_readwrite_connection_string_reference
+  files_db_keyvault_readonly_connection_string_reference                  = local.files_db_keyvault_readonly_connection_string_reference
 }
 
 module "databases" {
@@ -237,6 +304,8 @@ module "databases" {
   key_vault_id                                                            = module.key-vault.key_vault_id
 
   sqlserver_admin_email                                                   = var.sqlserver_admin_email
+  sqlserver_active_directory_administrator_login_name                     = var.sqlserver_active_directory_administrator_login_name
+  sqlserver_active_directory_administrator_objectid                       = var.sqlserver_active_directory_administrator_objectid
 
   log_storage_account_blob_endpoint                                       = module.logging.log_storage_account_blob_endpoint
   log_storage_account_access_key                                          = module.logging.log_storage_account_access_key

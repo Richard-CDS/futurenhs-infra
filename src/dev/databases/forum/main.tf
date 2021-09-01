@@ -85,3 +85,30 @@ resource "azurerm_key_vault_secret" "sqlserver_primary_forumdb_connection_string
   content_type                              = "text/plain"
   expiration_date                           = timeadd(timestamp(), "87600h")   
 }
+
+resource "azurerm_key_vault_secret" "sqlserver_primary_forumdb_readonly_connection_string" {
+  name                                      = "sqldb-${var.product_name}-${var.environment}-${var.location}-forum-readonly-connection-string"
+  value                                     = "Server=tcp:${var.sql_server_primary_fully_qualified_domain_name},1433;Initial Catalog=sqldb-${var.product_name}-${var.environment}-${var.location}-forum;Persist Security Info=False;User ID=${var.database_login_user};Password=${var.database_login_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;ApplicationIntent=ReadOnly;"
+  key_vault_id                              = var.key_vault_id
+
+  content_type                              = "text/plain"
+  expiration_date                           = timeadd(timestamp(), "87600h")   
+}
+
+resource "azurerm_key_vault_secret" "sqlserver_primary_filesdb_connection_string" {
+  name                                      = "sqldb-${var.product_name}-${var.environment}-${var.location}-files-readwrite-connection-string"
+  value                                     = "Server=tcp:${var.sql_server_primary_fully_qualified_domain_name},1433;Initial Catalog=sqldb-${var.product_name}-${var.environment}-${var.location}-forum;Persist Security Info=False;User ID=${var.database_login_user};Password=${var.database_login_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+  key_vault_id                              = var.key_vault_id
+
+  content_type                              = "text/plain"
+  expiration_date                           = timeadd(timestamp(), "87600h")   
+}
+
+resource "azurerm_key_vault_secret" "sqlserver_primary_filesdb_readonly_connection_string" {
+  name                                      = "sqldb-${var.product_name}-${var.environment}-${var.location}-files-readonly-connection-string"
+  value                                     = "Server=tcp:${var.sql_server_primary_fully_qualified_domain_name},1433;Initial Catalog=sqldb-${var.product_name}-${var.environment}-${var.location}-forum;Persist Security Info=False;User ID=${var.database_login_user};Password=${var.database_login_password};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;ApplicationIntent=ReadOnly;"
+  key_vault_id                              = var.key_vault_id
+
+  content_type                              = "text/plain"
+  expiration_date                           = timeadd(timestamp(), "87600h")   
+}

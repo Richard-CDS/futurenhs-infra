@@ -1,9 +1,19 @@
-output forum_instrumentation_key {
-  value     = module.forum_production_slot.forum_instrumentation_key
+output instrumentation_key {
+  value     = module.forum_production_slot.instrumentation_key
   sensitive = true
 }
 
-output forum_connection_string {
-  value     = module.forum_production_slot.forum_connection_string
+output connection_string {
+  value     = module.forum_production_slot.connection_string
+  sensitive = true
+}
+
+output staging_instrumentation_key {
+  value     = module.forum_staging_slot.instrumentation_key
+  sensitive = true
+}
+
+output staging_connection_string {
+  value     = module.forum_staging_slot.connection_string
   sensitive = true
 }
